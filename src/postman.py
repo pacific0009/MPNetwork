@@ -15,16 +15,29 @@ DEVEICE_ID_SKIP_LEN =2
 DISTANCE_VECTOR_SN =0
 MPN_SN =1
 PING_SN =3
+SUBSCRIBERS = []
 
-def register_handler(dest, response_handler, port, baudrate):
+def register_handler(dest, port, baudrate):
     ser = connect(dest, port, baudrate)
     def handler(message):
-        on_message(dest,ser, message)
+        on_message(dest, ser, message)
     set_message_handler(handler)
-    t = threading.Thread(target=on_serial, args=[response_handler, ser])
+    t = threading.Thread(target=on_serial, args=[ser])
     t.setDaemon(True)
     t.start()
     return Atom(b'ok')
+
+def subscribe(sender, subscriber):
+    if not subscriber in SUBSCRIBERS:
+        SUBSCRIBERS.append(subscriber)
+    cast(sender, (Atom(b'ok'), Atom(b'subscribed')))
+
+
+def unsubscribe(sender, subscriber):
+    if subscriber in SUBSCRIBERS:
+        SUBSCRIBERS.remove(subscriber)
+    cast(sender, (Atom(b'ok'), Atom(b'unsubscribed')))
+
 
 class RFPACKET:
     def __init__(self):
@@ -65,7 +78,6 @@ def packet_encode(response):
     packet += '{:02x}'.format(response.next_hop)
     packet += '{:02x}'.format(response.destination)
     packet += '{:02x}'.format(response.source)
-
     for i in range(SIZE_OF_DATA):
         packet += response.data[i]
     calculated_XRCS = 0
@@ -81,21 +93,13 @@ def connect(sender, port, baud):
     ser = serial.Serial(port, baudrate=baud, timeout=None)
     if ser:
         print("\t\tconnected")
-        cast(sender,
-             (Atom(b'ok'),
-              Atom(b'connected')
-              )
-             )
+        cast(sender, (Atom(b'ok'), Atom(b'connected')))
         return ser
     else:
         print("\t\tdisconnected")
-        cast(sender,
-             (Atom(b'failed'),
-              Atom(b'Unavailable')
-              )
-             )
+        cast(sender,(Atom(b'failed'), Atom(b'Unavailable')))
 
-def on_serial(dest, ser):
+def on_serial(ser):
     p = re.compile('<.*>')
     while True:
         packet = str(ser.readline())
@@ -105,31 +109,27 @@ def on_serial(dest, ser):
             rf_packet = packet_decode(result.group(0))
             print("<-- {} encoded:{}\n".format(rf_packet, result.group(0)))
             if rf_packet :
-                cast(dest, (rf_packet.serialNo,
-                            rf_packet.next_hop,
-                            rf_packet.destination,
-                            rf_packet.source,
-                            rf_packet.data
-                            )
-                    )
+                message = (rf_packet.serialNo,
+                           rf_packet.next_hop,
+                           rf_packet.destination,
+                           rf_packet.source,
+                           rf_packet.data)
+
+                for subscriber in SUBSCRIBERS:
+                    cast(subscriber, message)
 
 
-def on_message(sender, ser, message):
+def on_message(ser, message):
     packet = RFPACKET()
-    packet.serialNo, packet.next_hop, packet.destination, packet.source, packet.data = message
-    encoded_packet = packet_encode(packet)
-    print("--> {} encoded:{}\n".format(packet, encoded_packet))
-    #print("\t-->{}".format(encoded_packet))
-    if ser.write(encoded_packet):
-        cast(sender,
-             (Atom(b'oksendtoserial')
-              )
-             )
-    else:
-        print("disconnected")
-        cast(sender,
-             (Atom(b'failed'),
-              Atom(b'Unavailable')
-              )
-             )
-
+    sender = message[0]
+    try:
+        packet.serialNo, packet.next_hop, packet.destination, packet.source, packet.data = message[1]
+        encoded_packet = packet_encode(packet)
+        print("--> {} encoded:{}\n".format(packet, encoded_packet))
+        if ser.write(encoded_packet):
+            cast(sender,(Atom(b'ok'), Atom(b'delivered to serial')))
+        else:
+            print("disconnected")
+            cast(sender,(Atom(b'failed'), Atom(b'Unavailable')))
+    except Exception as e:
+        cast(sender, (Atom(b'failed'), e))

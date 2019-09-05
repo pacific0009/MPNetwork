@@ -13,6 +13,6 @@
 -define(MyId, 0).
 -define(SIZE_OF_DATA, 8).
 -define(INFINITE, ?MAX_BEES+2).
--define(SERIAL_PORT, <<"/dev/cu.usbmodem14341">>).
+-define(SERIAL_PORT, <<"/dev/cu.usbmodem14241">>).
 -define(BAUD_RATE, 9600).
 -define(PYPATH, "/Users/anand.ratna/IdeaProjects/MPNetork/src").
