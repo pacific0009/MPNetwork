@@ -10,47 +10,62 @@
 -author("anand.ratna").
 -include("config.hrl").
 %% API
--export([start/0, stop/0, subscribe/1, unsubscribe/1, publish/1, tester/1]).
+-export([start/0, stop/0, restart/0, subscribe/1, unsubscribe/1, publish/1, tester/1]).
 start()->
   io:format("\t- Starting Postman~n"),
+  process_flag(trap_exit, true),
   {ok, Postman} = python:start([{python_path, ?PYPATH}, {python, "python"}]),
-  python:call(Postman, postman, register_handler, [self(), ?SERIAL_PORT, ?BAUD_RATE]),
+  python:call(Postman, postman, register_handler, [?SERIAL_PORT, ?BAUD_RATE]),
+  %python:call(Postman, postman, on_serial, []),
   register(mpnPostman, Postman),
   io:format("\t+ Postman Started!~n"),
   Postman.
 
 stop()->
   Postman = whereis(mpnPostman),
-  unregister(Postman),
-  python:stop(Postman),
-  {ok, unregisterd}.
+  case Postman of
+    undefined  ->
+      io:format("Process Not Exist~n");
+    Other ->
+      unregister(mpnPostman),
+      python:stop(Other)
+end.
+
+restart()->
+  io:format("Restart Initiated ..~n"),
+  Postman = whereis(mpnPostman),
+  case Postman of
+    undefined  ->
+      io:format("Process Not Exist~n");
+    Other ->
+      unregister(mpnPostman),
+      python:stop(Other),
+      timer:sleep(5000),
+      try
+          undefined = whereis(mpnPostman),
+          start()
+      catch
+        exit: _ ->
+           io:format("Process Running~n")
+      end
+end.
 
 subscribe(Subscriber)->
-  c:flush(),
-  python:call(whereis(mpnPostman), postman, subscribe, [self(), Subscriber]),
-  receive
-    Data -> io:format("response:~p~n", [Data])
-  end.
+  Data = python:call(whereis(mpnPostman), postman, subscribe, [Subscriber]),
+  Data.
 
 unsubscribe(Subscriber)->
-  c:flush(),
-  python:call(whereis(mpnPostman), postman, unsubscribe, [self(), Subscriber]),
-  receive
-    Data -> io:format("response:~p~n", [Data])
-  end.
+  Data = python:call(whereis(mpnPostman), postman, unsubscribe, [Subscriber]),
+  Data.
 
 
 publish(Message)->
-  c:flush(),
-  whereis(mpnPostman) ! [self(), Message],
-  receive
-    Data -> io:format("response:~p~n", [Data])
-  end.
-
+  Data = whereis(mpnPostman) ! Message,
+  Data.
 
 tester(ID)->
   receive
     Other->
-      io:format("$~p received:  ~p~n", [ID, Other]),
+      io:format("P~p <-- ~p~n", [ID, Other]),
       tester(ID)
   end.

@@ -2,8 +2,25 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4697f420-a029-4133-a195-c055e7769396" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/src/mpn_client.erl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/mpn_controller_service.erl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/mpn_supervisor.erl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/postman_service.erl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mnesia.nonode@nohost/DECISION_TAB.LOG" beforeDir="false" afterPath="$PROJECT_DIR$/Mnesia.nonode@nohost/DECISION_TAB.LOG" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mnesia.nonode@nohost/LATEST.LOG" beforeDir="false" afterPath="$PROJECT_DIR$/Mnesia.nonode@nohost/LATEST.LOG" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_controller.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_controller.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_service.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_service.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/postman.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/postman.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_controller.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_controller.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_service.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_service.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/postman.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/postman.beam" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/config.hrl" beforeDir="false" afterPath="$PROJECT_DIR$/src/config.hrl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mpn.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn.erl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mpn_controller.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_controller.erl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mpn_service.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_service.erl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/postman.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/postman.erl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/postman.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/postman.py" afterDir="false" />
     </list>
@@ -20,10 +37,10 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Erlang Header" />
-        <option value="Erlang Supervisor" />
         <option value="Erlang Application" />
         <option value="Erlang Application Resource File" />
         <option value="Erlang Module" />
+        <option value="Erlang Supervisor" />
         <option value="Erlang Gen Server" />
       </list>
     </option>
@@ -35,6 +52,7 @@
   <component name="ProjectId" id="1PrH71mpJiDzyUzleWhCGu8mXPP" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="PropertiesComponent">
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/src" />
     <property name="project.structure.last.edited" value="Project" />
     <property name="project.structure.proportion" value="0.0" />

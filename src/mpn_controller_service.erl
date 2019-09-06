@@ -4,18 +4,16 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 03. Sep 2019 8:18 PM
+%%% Created : 07. Sep 2019 12:23 AM
 %%%-------------------------------------------------------------------
--module(mpn_service).
+-module(mpn_controller_service).
 -author("anand.ratna").
 
 -behaviour(gen_server).
+-define(INTERVAL, 6000). % One minute
 
 %% API
--export([start_link/0, get_mpn_table/0,update_routing_table/3, get_distance_vector/1,
-  get_routing_table/0, register_bee/1, unregister_bee/1,
-  get_registered_bee/1, get_next_hop_bees/0, alive_allocate_mpn_id/2,
-  set_bee_as_lost/1, get_mpn_for/1]).
+-export([start_link/0, response_handler/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -39,44 +37,13 @@
 %%
 %% @end
 %%--------------------------------------------------------------------
-
+-spec(start_link() ->
+  {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
   gen_server:start_link({global, ?SERVER}, ?MODULE, [], []).
 
-get_mpn_table()->
-  gen_server:call({global, ?MODULE}, {get_mpn_table}).
-
-get_mpn_for(Bee)->
-  gen_server:call({global, ?MODULE}, {get_mpn_for, Bee}).
-
-update_routing_table(Destination, Distance, NextHop)->
-  gen_server:call({global, ?MODULE}, {update_routing_table, Destination, Distance, NextHop}).
-
-get_distance_vector(Destination)->
-  gen_server:call({global, ?MODULE}, {get_distance_vector, Destination}).
-
-get_routing_table()->
-  gen_server:call({global, ?MODULE}, {get_routing_table}).
-
-register_bee(MAC)->
-  gen_server:call({global, ?MODULE}, {register_bee, MAC}).
-
-unregister_bee(Bee)->
-  gen_server:call({global, ?MODULE}, {unregister_bee, Bee}).
-
-get_registered_bee(MAC)->
-  gen_server:call({global, ?MODULE}, {get_registered_bee, MAC}).
-
-get_next_hop_bees()->
-  gen_server:call({global, ?MODULE}, {get_next_hop_bees}).
-
-alive_allocate_mpn_id(MAC, ID)->
-  gen_server:call({global, ?MODULE}, {alive_allocate_mpn_id, MAC, ID}).
-
-set_bee_as_lost(Bee)->
-  gen_server:call({global, ?MODULE}, {set_bee_as_lost, Bee}).
-
-
+response_handler(Data)->
+  gen_server:call({global, ?MODULE}, {response_handler, Data}).
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -92,11 +59,17 @@ set_bee_as_lost(Bee)->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
+-spec(init(Args :: term()) ->
+  {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
+  {stop, Reason :: term()} | ignore).
 
 init([]) ->
   process_flag(trap_exit, true),
-  io:format("~p (~p) Starting..~n", [{global, ?MODULE}, self()]),
-  mpn:start(),
+  io:format("~p (~p) ~p Starting..~n", [global, ?MODULE, self()]),
+  Handler = spawn(mpn_controller, on_receive_packet,[]),
+  postman_service:subscribe(Handler),
+  mpn_controller:start(),
+  erlang:send_after(?INTERVAL, self(), trigger_prune_lost_bees),
   {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -106,39 +79,17 @@ init([]) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-handle_call({set_bee_as_lost, Bee}, _From, State) ->
-  {reply, mpn:set_bee_as_lost(Bee), State};
+-spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+    State :: #state{}) ->
+  {reply, Reply :: term(), NewState :: #state{}} |
+  {reply, Reply :: term(), NewState :: #state{}, timeout() | hibernate} |
+  {noreply, NewState :: #state{}} |
+  {noreply, NewState :: #state{}, timeout() | hibernate} |
+  {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
+  {stop, Reason :: term(), NewState :: #state{}}).
 
-handle_call({alive_allocate_mpn_id, MAC, ID}, _From, State) ->
-  {reply, mpn:alive_allocate_mpn_id(MAC, ID), State};
-
-handle_call({get_next_hop_bees}, _From, State) ->
-  {reply, mpn:get_next_hop_bees(), State};
-
-handle_call({get_registered_bee, MAC}, _From, State) ->
-  {reply, mpn:get_registered_bee(MAC), State};
-
-handle_call({unregister_bee, Bee}, _From, State) ->
-  {reply, mpn:unregister_bee(Bee), State};
-
-handle_call({register_bee, MAC}, _From, State) ->
-  {reply, mpn:register_bee(MAC), State};
-
-handle_call({get_routing_table}, _From, State) ->
-  {reply, mpn:get_routing_table(), State};
-
-handle_call({get_distance_vector, Destination}, _From, State) ->
-  {reply, mpn:get_distance_vector(Destination), State};
-
-handle_call({update_routing_table, Destination, Distance, NextHop}, _From, State) ->
-  {reply, mpn:update_routing_table(Destination,Distance,NextHop), State};
-
-handle_call({get_mpn_for, Bee}, _From, State) ->
-  {reply, mpn:get_mpn_for(Bee), State};
-
-handle_call({get_mpn_table}, _From, State) ->
-  {reply, mpn:get_mpn_table(), State}.
-
+handle_call({response_handler, Data}, _From, State) ->
+  {reply, mpn_controller:response_handler(Data), State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -147,7 +98,10 @@ handle_call({get_mpn_table}, _From, State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-
+-spec(handle_cast(Request :: term(), State :: #state{}) ->
+  {noreply, NewState :: #state{}} |
+  {noreply, NewState :: #state{}, timeout() | hibernate} |
+  {stop, Reason :: term(), NewState :: #state{}}).
 handle_cast(_Request, State) ->
   {noreply, State}.
 
@@ -165,6 +119,10 @@ handle_cast(_Request, State) ->
   {noreply, NewState :: #state{}} |
   {noreply, NewState :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #state{}}).
+handle_info(trigger_prune_lost_bees, State) ->
+  mpn_controller:prune_lost_bees(),
+  erlang:send_after(?INTERVAL, self(), trigger_prune_lost_bees),
+  {noreply, State};
 handle_info(_Info, State) ->
   {noreply, State}.
 

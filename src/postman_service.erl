@@ -4,18 +4,15 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 03. Sep 2019 8:18 PM
+%%% Created : 05. Sep 2019 8:33 PM
 %%%-------------------------------------------------------------------
--module(mpn_service).
+-module(postman_service).
 -author("anand.ratna").
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, get_mpn_table/0,update_routing_table/3, get_distance_vector/1,
-  get_routing_table/0, register_bee/1, unregister_bee/1,
-  get_registered_bee/1, get_next_hop_bees/0, alive_allocate_mpn_id/2,
-  set_bee_as_lost/1, get_mpn_for/1]).
+-export([start_link/0, stop/0, subscribe/1, unsubscribe/1, publish/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -40,43 +37,20 @@
 %% @end
 %%--------------------------------------------------------------------
 
-start_link() ->
+start_link()->
   gen_server:start_link({global, ?SERVER}, ?MODULE, [], []).
 
-get_mpn_table()->
-  gen_server:call({global, ?MODULE}, {get_mpn_table}).
+stop()->
+  gen_server:cast({global, ?MODULE}, stop).
 
-get_mpn_for(Bee)->
-  gen_server:call({global, ?MODULE}, {get_mpn_for, Bee}).
+subscribe(Subscriber)->
+  gen_server:call({global, ?MODULE}, {subscribe, Subscriber}).
 
-update_routing_table(Destination, Distance, NextHop)->
-  gen_server:call({global, ?MODULE}, {update_routing_table, Destination, Distance, NextHop}).
+unsubscribe(Subscriber)->
+  gen_server:call({global, ?MODULE}, {unsubscribe, Subscriber}).
 
-get_distance_vector(Destination)->
-  gen_server:call({global, ?MODULE}, {get_distance_vector, Destination}).
-
-get_routing_table()->
-  gen_server:call({global, ?MODULE}, {get_routing_table}).
-
-register_bee(MAC)->
-  gen_server:call({global, ?MODULE}, {register_bee, MAC}).
-
-unregister_bee(Bee)->
-  gen_server:call({global, ?MODULE}, {unregister_bee, Bee}).
-
-get_registered_bee(MAC)->
-  gen_server:call({global, ?MODULE}, {get_registered_bee, MAC}).
-
-get_next_hop_bees()->
-  gen_server:call({global, ?MODULE}, {get_next_hop_bees}).
-
-alive_allocate_mpn_id(MAC, ID)->
-  gen_server:call({global, ?MODULE}, {alive_allocate_mpn_id, MAC, ID}).
-
-set_bee_as_lost(Bee)->
-  gen_server:call({global, ?MODULE}, {set_bee_as_lost, Bee}).
-
-
+publish(Message)->
+  gen_server:call({global, ?MODULE}, {publish, Message}).
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -96,7 +70,7 @@ set_bee_as_lost(Bee)->
 init([]) ->
   process_flag(trap_exit, true),
   io:format("~p (~p) Starting..~n", [{global, ?MODULE}, self()]),
-  mpn:start(),
+  postman:start(),
   {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -106,40 +80,15 @@ init([]) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-handle_call({set_bee_as_lost, Bee}, _From, State) ->
-  {reply, mpn:set_bee_as_lost(Bee), State};
 
-handle_call({alive_allocate_mpn_id, MAC, ID}, _From, State) ->
-  {reply, mpn:alive_allocate_mpn_id(MAC, ID), State};
+handle_call({subscribe, Subscriber}, _From, State) ->
+  {reply, postman:subscribe(Subscriber), State};
 
-handle_call({get_next_hop_bees}, _From, State) ->
-  {reply, mpn:get_next_hop_bees(), State};
+handle_call({unsubscribe, Subscriber}, _From, State) ->
+  {reply, postman:unsubscribe(Subscriber), State};
 
-handle_call({get_registered_bee, MAC}, _From, State) ->
-  {reply, mpn:get_registered_bee(MAC), State};
-
-handle_call({unregister_bee, Bee}, _From, State) ->
-  {reply, mpn:unregister_bee(Bee), State};
-
-handle_call({register_bee, MAC}, _From, State) ->
-  {reply, mpn:register_bee(MAC), State};
-
-handle_call({get_routing_table}, _From, State) ->
-  {reply, mpn:get_routing_table(), State};
-
-handle_call({get_distance_vector, Destination}, _From, State) ->
-  {reply, mpn:get_distance_vector(Destination), State};
-
-handle_call({update_routing_table, Destination, Distance, NextHop}, _From, State) ->
-  {reply, mpn:update_routing_table(Destination,Distance,NextHop), State};
-
-handle_call({get_mpn_for, Bee}, _From, State) ->
-  {reply, mpn:get_mpn_for(Bee), State};
-
-handle_call({get_mpn_table}, _From, State) ->
-  {reply, mpn:get_mpn_table(), State}.
-
-
+handle_call({publish, Message}, _From, State) ->
+  {reply, postman:publish(Message), State}.
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -161,10 +110,7 @@ handle_cast(_Request, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
-  {noreply, NewState :: #state{}} |
-  {noreply, NewState :: #state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), NewState :: #state{}}).
+
 handle_info(_Info, State) ->
   {noreply, State}.
 
@@ -179,8 +125,7 @@ handle_info(_Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
--spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
-    State :: #state{}) -> term()).
+
 terminate(_Reason, _State) ->
   ok.
 
@@ -192,9 +137,7 @@ terminate(_Reason, _State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
--spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
-    Extra :: term()) ->
-  {ok, NewState :: #state{}} | {error, Reason :: term()}).
+
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 

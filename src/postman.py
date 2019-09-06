@@ -2,41 +2,42 @@ import serial, re, os
 from erlport.erlterms import Atom
 from erlport.erlang import set_message_handler, cast
 import threading
-MAXIMUM_NODES = 32
-MAX_HOP_DISTANCE = 10
+from erlport.erlang import call
+MAXIMUM_NODES =32
+MAX_HOP_DISTANCE =10
 SIZE_OF_CS_DATA =18
 SIZE_OF_DATA =8
-SIZE_OF_HEADER= 10
+SIZE_OF_HEADER =10
 SIZE_OF_SN =4
-START_INDEX_DATA= 10
+START_INDEX_DATA =10
 MAX_RESERVE_SEQUENCE =10
-DEVEICE_ID_LEN =8
-DEVEICE_ID_SKIP_LEN =2
 DISTANCE_VECTOR_SN =0
 MPN_SN =1
 PING_SN =3
 SUBSCRIBERS = []
 
-def register_handler(dest, port, baudrate):
-    ser = connect(dest, port, baudrate)
+def register_handler(port, baudrate):
+    SER = connect( port, baudrate)
+    if not SER:
+        return (Atom(b'failed'), Atom(b'serial connection failed'))
     def handler(message):
-        on_message(dest, ser, message)
+        publish(SER, message)
     set_message_handler(handler)
-    t = threading.Thread(target=on_serial, args=[ser])
+    t = threading.Thread(target=on_serial, args=[SER])
     t.setDaemon(True)
     t.start()
-    return Atom(b'ok')
+    return (Atom(b'ok'), Atom(b'connected'))
 
-def subscribe(sender, subscriber):
+def subscribe(subscriber):
     if not subscriber in SUBSCRIBERS:
         SUBSCRIBERS.append(subscriber)
-    cast(sender, (Atom(b'ok'), Atom(b'subscribed')))
+    return (Atom(b'ok'), Atom(b'subscribed'))
 
 
-def unsubscribe(sender, subscriber):
+def unsubscribe(subscriber):
     if subscriber in SUBSCRIBERS:
         SUBSCRIBERS.remove(subscriber)
-    cast(sender, (Atom(b'ok'), Atom(b'unsubscribed')))
+    return (Atom(b'ok'), Atom(b'unsubscribed'))
 
 
 class RFPACKET:
@@ -89,20 +90,18 @@ def packet_encode(response):
     return packet
 
 
-def connect(sender, port, baud):
+def connect(port, baud):
     ser = serial.Serial(port, baudrate=baud, timeout=None)
-    if ser:
-        print("\t\tconnected")
-        cast(sender, (Atom(b'ok'), Atom(b'connected')))
-        return ser
-    else:
-        print("\t\tdisconnected")
-        cast(sender,(Atom(b'failed'), Atom(b'Unavailable')))
+    print("connected")
+    return ser
 
-def on_serial(ser):
+def on_serial(SER):
     p = re.compile('<.*>')
     while True:
-        packet = str(ser.readline())
+        try:
+            packet = str(SER.readline())
+        except:
+            call(Atom("postman_service"), Atom("stop"), [])
         result = p.search(packet)
         if result:
             #print("\t<--: {}".format(result.group(0)))
@@ -114,22 +113,18 @@ def on_serial(ser):
                            rf_packet.destination,
                            rf_packet.source,
                            rf_packet.data)
-
                 for subscriber in SUBSCRIBERS:
                     cast(subscriber, message)
 
 
-def on_message(ser, message):
+def publish(ser, message):
     packet = RFPACKET()
-    sender = message[0]
-    try:
-        packet.serialNo, packet.next_hop, packet.destination, packet.source, packet.data = message[1]
-        encoded_packet = packet_encode(packet)
-        print("--> {} encoded:{}\n".format(packet, encoded_packet))
-        if ser.write(encoded_packet):
-            cast(sender,(Atom(b'ok'), Atom(b'delivered to serial')))
-        else:
-            print("disconnected")
-            cast(sender,(Atom(b'failed'), Atom(b'Unavailable')))
-    except Exception as e:
-        cast(sender, (Atom(b'failed'), e))
+    #try:
+    packet.serialNo, packet.next_hop, packet.destination, packet.source, packet.data = message
+    encoded_packet = packet_encode(packet)
+    print("--> {} encoded:{}\n".format(packet, encoded_packet))
+    if ser.write(encoded_packet):
+        return (Atom(b'ok'), Atom(b'published to serial'))
+    else:
+        print("disconnected")
+        return (Atom(b'failed'),  Atom(b'Unavailable'))

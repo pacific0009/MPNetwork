@@ -20,10 +20,8 @@
 -record(sequence, {number}).
 
 start()->
-  initDB(),
   io:format("\t- Starting MPNetwork ["),
-  lists:foreach(fun(Item) -> timer:sleep(100), io:format("####")
-                end, lists:seq(0,5)),
+  initDB(),
   init_mpn(?MAX_BEES, ?MIN_SEQ),
   io:format("##]~n"),
   io:format("\t+ MPNetwork Started!~n"),
@@ -34,6 +32,8 @@ start()->
 initDB() ->
   mnesia:create_schema([node()]),
   mnesia:start(),
+  lists:foreach(fun(Item) -> timer:sleep(100), io:format("####")
+                end, lists:seq(0,5)),
   try
     mnesia:table_info(type, mpNetwork),
     mnesia:table_info(type, mpnRoutingTable),
