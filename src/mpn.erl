@@ -11,12 +11,18 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("config.hrl").
 %% API
--export([start/0, get_mpn_table/0,update_routing_table/3, get_distance_vector/1,
-  get_routing_table/0, init_mpn/2, register_bee/1, unregister_bee/1,
-  get_registered_bee/1, get_next_hop_bees/0, alive_allocate_mpn_id/2,
-  set_bee_as_lost/1, get_mpn_for/1]).
+-export([start/0,init_mpn/2,
+  get_mpn_table/0,update_routing_table/3, get_distance_vector/1,
+  get_routing_table/0, get_registered_bee/1, get_next_hop_bees/0,
+  set_bee_as_lost/1, get_mpn_for/1,get_mpn_tableJson/0, get_routing_table_list/0,
+  register_bee/1, unregister_bee/1, alive_allocate_mpn_id/2,
+  register_bee_services/5, store_request/3, store_response/3,
+  get_registered_services/0, get_registered_services_for/1]).
 -record(mpNetwork, {mpnId,available, mac, lastActive, alive}).
 -record(mpnRoutingTable, {destination, distance, nextHop}).
+-record(mpnBeesServices, {mac, service1, service2, service3, service4}).
+-record(mpnBeesRequest,  {mac, service, request, timestamp}).
+-record(mpnBeesResponse, {mac, service, response, timestamp}).
 -record(sequence, {number}).
 
 start()->
@@ -41,11 +47,11 @@ initDB() ->
   catch
     exit: _ ->
       mnesia:create_table(mpNetwork, [{attributes, record_info(fields, mpNetwork)},
-        {type, bag}]),
+        {type, bag}, {disc_copies,[node()]}] ),
       mnesia:create_table(mpnRoutingTable, [{attributes, record_info(fields, mpnRoutingTable)},
-        {type, bag}]),
+        {type, bag}, {disc_copies,[node()]}]),
       mnesia:create_table(sequence, [{attributes, record_info(fields, sequence)},
-        {type, bag}])
+        {type, bag}, {disc_copies,[node()]}])
   end.
 
 init_sequence(MINSeq)->
@@ -88,6 +94,21 @@ get_mpn_table() ->
   {atomic, Results} = mnesia:transaction(AF),
   lists:sort(Results).
 
+get_mpn_tableJson() ->
+  % Return all record of mpNetwork
+  AF = fun()->
+    Query = qlc:q([X || X <- mnesia:table(mpNetwork)]),
+    Results = qlc:e(Query),
+    lists:map(fun(Item)->[Item#mpNetwork.mpnId,
+      mpn_utils:b2l(Item#mpNetwork.mac),
+      Item#mpNetwork.available,
+      Item#mpNetwork.alive,
+      mpn_utils:to_timestamp(Item#mpNetwork.lastActive)]
+              end, Results)
+       end,
+  {atomic, Results} = mnesia:transaction(AF),
+  lists:sort(Results).
+
 get_mpn_for(ID)->
   % Return single record of mpNetwork
   AF = fun()->
@@ -124,7 +145,36 @@ get_routing_table() ->
     qlc:e(Query)
        end,
   {atomic, Results} = mnesia:transaction(AF),
-  Results.
+  lists:sort(Results).
+
+get_routing_table_list() ->
+  % Return all records of routing table
+  AF = fun()->
+    Query = qlc:q([X || X <- mnesia:table(mpnRoutingTable)]),
+    Results = qlc:e(Query),
+    lists:map(fun(Item)->[Item#mpnRoutingTable.destination,
+  Item#mpnRoutingTable.distance,
+  Item#mpnRoutingTable.nextHop]
+              end, Results)
+       end,
+  {atomic, Results} = mnesia:transaction(AF),
+  lists:sort(Results).
+
+get_registered_services()->
+  AF = fun()->
+    Query = qlc:q([X || X <- mnesia:table(mpnBeesServices)]),
+    qlc:e(Query)
+       end,
+  {atomic, Results} = mnesia:transaction(AF),
+  lists:sort(Results).
+
+get_registered_services_for(MAC)->
+  AF = fun()->
+    Query = qlc:q([X || X <- mnesia:table(mpnBeesServices), #mpnBeesServices.mac=:=MAC]),
+    qlc:e(Query)
+       end,
+  {atomic, Results} = mnesia:transaction(AF),
+  lists:sort(Results).
 
 update_routing_table(ID, Distance, NextHop) ->
   if
@@ -256,4 +306,26 @@ set_bee_as_lost(Bee)->
       end,
   mnesia:transaction(F),
   %% Todo: Set unreachable bees in routing table
+  ok.
+
+register_bee_services(Mac, S1, S2, S3, S4) ->
+  F = fun() ->
+    mnesia:delete(mpnBeesServices, Mac, write),
+    mnesia:write(#mpnBeesServices{mac = Mac, service1 = S1, service2 = S2, service3 = S3, service4 = S4})
+      end,
+  mnesia:transaction(F),
+  ok.
+
+store_request(Mac, Service, Request) ->
+  F = fun() ->
+    mnesia:write(#mpnBeesRequest{mac = Mac, service = Service, request = Request, timestamp = calendar:universal_time()})
+      end,
+  mnesia:transaction(F),
+  ok.
+
+store_response(Mac, Service, Response) ->
+  F = fun() ->
+    mnesia:write(#mpnBeesResponse{mac = Mac, service = Service, response = Response , timestamp = calendar:universal_time()})
+      end,
+  mnesia:transaction(F),
   ok.

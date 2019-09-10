@@ -57,8 +57,6 @@ init([]) ->
     permanent, infinity, worker, [postman_service]},
   MpnController = {mpn_controller_service_id, {mpn_controller_service, start_link, []},
     permanent, infinity, worker, [mpn_controller_service]},
-
-
   Children = [Mpn, Postman, MpnController],
   {ok, {RestartStrategy, Children}}.
 

@@ -120,6 +120,7 @@ handle_cast(_Request, State) ->
   {noreply, NewState :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #state{}}).
 handle_info(trigger_prune_lost_bees, State) ->
+  postman_service:publish(<<"ping">>),
   mpn_controller:prune_lost_bees(),
   erlang:send_after(?INTERVAL, self(), trigger_prune_lost_bees),
   {noreply, State};

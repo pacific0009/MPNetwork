@@ -113,13 +113,16 @@ def on_serial(SER):
                            rf_packet.destination,
                            rf_packet.source,
                            rf_packet.data)
+                #call(Atom("mpn_controller_service"), Atom("response_handler"), [message])
                 for subscriber in SUBSCRIBERS:
                     cast(subscriber, message)
 
 
 def publish(ser, message):
     packet = RFPACKET()
-    #try:
+    if message == "ping":
+        ser.write("")
+        return (Atom(b'ok'),  Atom(b'pong'))
     packet.serialNo, packet.next_hop, packet.destination, packet.source, packet.data = message
     encoded_packet = packet_encode(packet)
     print("--> {} encoded:{}\n".format(packet, encoded_packet))

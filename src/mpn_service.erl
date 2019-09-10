@@ -15,7 +15,9 @@
 -export([start_link/0, get_mpn_table/0,update_routing_table/3, get_distance_vector/1,
   get_routing_table/0, register_bee/1, unregister_bee/1,
   get_registered_bee/1, get_next_hop_bees/0, alive_allocate_mpn_id/2,
-  set_bee_as_lost/1, get_mpn_for/1]).
+  set_bee_as_lost/1, get_mpn_for/1, get_mpn_table_json/0, get_routing_table_list/0,
+  register_bee_services/5, store_response/3, store_request/3,
+  get_registered_services_for/1, get_registered_services/0]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -46,6 +48,11 @@ start_link() ->
 get_mpn_table()->
   gen_server:call({global, ?MODULE}, {get_mpn_table}).
 
+get_mpn_table_json()->
+  gen_server:call({global, ?MODULE}, {get_mpn_table_json}).
+
+get_routing_table_list()->
+  gen_server:call({global, ?MODULE}, {get_routing_table_list}).
 get_mpn_for(Bee)->
   gen_server:call({global, ?MODULE}, {get_mpn_for, Bee}).
 
@@ -76,7 +83,18 @@ alive_allocate_mpn_id(MAC, ID)->
 set_bee_as_lost(Bee)->
   gen_server:call({global, ?MODULE}, {set_bee_as_lost, Bee}).
 
+register_bee_services(Mac, S1, S2, S3, S4) ->
+  gen_server:call({global, ?MODULE}, {register_bee_services, Mac, S1, S2, S3, S4}).
 
+store_request(Mac, Service, Request) ->
+  gen_server:call({global, ?MODULE}, {store_request, Mac, Service, Request}).
+
+store_response(Mac, Service, Response) ->
+  gen_server:call({global, ?MODULE}, {store_response, Mac, Service, Response}).
+get_registered_services() ->
+  gen_server:call({global, ?MODULE}, {get_registered_services}).
+get_registered_services_for(Mac) ->
+  gen_server:call({global, ?MODULE}, {get_registered_services_for, Mac}).
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -137,7 +155,28 @@ handle_call({get_mpn_for, Bee}, _From, State) ->
   {reply, mpn:get_mpn_for(Bee), State};
 
 handle_call({get_mpn_table}, _From, State) ->
-  {reply, mpn:get_mpn_table(), State}.
+  {reply, mpn:get_mpn_table(), State};
+
+handle_call({get_routing_table_list}, _From, State) ->
+  {reply, mpn:get_routing_table_list(), State};
+
+handle_call({register_bee_services, Mac, S1, S2, S3, S4}, _From, State) ->
+  {reply, mpn:register_bee_services(Mac, S1, S2, S3, S4), State};
+
+handle_call({store_response, Mac, Service, Response}, _From, State) ->
+  {reply, mpn:store_response(Mac, Service, Response), State};
+
+handle_call({store_request, Mac, Service, Request}, _From, State) ->
+  {reply, mpn:store_request(Mac, Service, Request), State};
+
+handle_call({get_registered_services}, _From, State) ->
+  {reply, mpn:get_registered_services(), State};
+
+handle_call({get_registered_services_for, Mac}, _From, State) ->
+  {reply, mpn:get_registered_services_for(Mac), State};
+
+handle_call({get_mpn_table_json}, _From, State) ->
+  {reply, mpn:get_mpn_tableJson(), State}.
 
 
 %%--------------------------------------------------------------------
