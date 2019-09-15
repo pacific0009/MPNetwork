@@ -38,6 +38,8 @@ handle_bee_registration( S, DATA)->
   Buff = lists:flatten(io_lib:format("~s~s", [list_to_binary(SR), NewMac])),
   Data = list_to_binary(Buff),
   postman_service:publish({2, ?MAX_BEES,S, ?MyId, Data}),
+  timer:sleep(2000),
+  postman_service:publish({5, BeeId,S, ?MyId, DATA}),
   {ok, MAC, BeeId}.
 
 update_bee_alive(Bee,MAC) ->
@@ -59,8 +61,9 @@ store_response(Bee, DATA)->
   {Bee,MAC} = lists:nth(1,mpn_service:get_registered_bee(Bee)),
   RC =  list_to_integer(binary_to_list(string:slice(DATA,0,2)),16),
   Service = list_to_integer(binary_to_list(string:slice(DATA,2,2)),16),
-  Response = list_to_integer(binary_to_list(string:slice(DATA,4,8)),16),
-  mpn_service:store_response(MAC, Service, Response).
+  Response = list_to_integer(binary_to_list(string:slice(DATA,4,4)),16),
+  %% mpn_service:store_response(MAC, Service, Response),
+  mpn_service:record_state(MAC, Service, Response).
 
 response_handler(Data)->
   case Data of
@@ -107,6 +110,13 @@ on_receive_packet()->
       io:format("$failed ~p~n", [Other]),
       on_receive_packet()
   end.
+
+
+sync_services_of_registered_bee()->
+  ok.
+
+collect_bee_state()->
+  ok.
 
 prune_lost_bees() ->
   Next_hop_bees = lists:usort(mpn_service:get_next_hop_bees()),

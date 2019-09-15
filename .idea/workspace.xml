@@ -2,35 +2,25 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4697f420-a029-4133-a195-c055e7769396" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/mpNetwork.app" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/mpNetwork.erl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/mpn_web.erl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mnesia.nonode@nohost/DECISION_TAB.LOG" beforeDir="false" afterPath="$PROJECT_DIR$/Mnesia.nonode@nohost/DECISION_TAB.LOG" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mnesia.nonode@nohost/LATEST.LOG" beforeDir="false" afterPath="$PROJECT_DIR$/Mnesia.nonode@nohost/LATEST.LOG" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mnesia.nonode@nohost/schema.DAT" beforeDir="false" afterPath="$PROJECT_DIR$/Mnesia.nonode@nohost/schema.DAT" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_client.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_client.beam" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_controller.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_controller.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_controller_service.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_controller_service.beam" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_service.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_service.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_supervisor.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_supervisor.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_utils.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_utils.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/mpn_web.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/mpn_web.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/MPNetwork/postman.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/MPNetwork/postman.beam" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_client.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_client.beam" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_controller.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_controller.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_controller_service.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_controller_service.beam" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_service.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_service.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_supervisor.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_supervisor.beam" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_utils.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_utils.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/mpn_web.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/mpn_web.beam" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/test/MPNetwork/postman.beam" beforeDir="false" afterPath="$PROJECT_DIR$/out/test/MPNetwork/postman.beam" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/config.hrl" beforeDir="false" afterPath="$PROJECT_DIR$/src/config.hrl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/mpn.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn.erl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mpn_client.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_client.erl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/mpn_controller.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_controller.erl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mpn_controller_service.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_controller_service.erl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/mpn_service.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_service.erl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mpn_supervisor.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_supervisor.erl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mpn_utils.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_utils.erl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/postman.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/postman.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mpn_web.erl" beforeDir="false" afterPath="$PROJECT_DIR$/src/mpn_web.erl" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -67,6 +57,9 @@
     <property name="project.structure.side.proportion" value="0.0" />
   </component>
   <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/www/tmp/htdocs" />
+    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/src" />
       <recent name="$PROJECT_DIR$" />
