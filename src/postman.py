@@ -3,18 +3,73 @@ from erlport.erlterms import Atom
 from erlport.erlang import set_message_handler, cast
 import threading
 from erlport.erlang import call
-MAXIMUM_NODES =32
-MAX_HOP_DISTANCE =10
-SIZE_OF_CS_DATA =18
-SIZE_OF_DATA =8
-SIZE_OF_HEADER =10
-SIZE_OF_SN =4
-START_INDEX_DATA =10
-MAX_RESERVE_SEQUENCE =10
-DISTANCE_VECTOR_SN =0
-MPN_SN =1
-PING_SN =3
+MAXIMUM_NODES = 10
+MAX_HOP_COUNT = 10
+SIZE_OF_CS_DATA = 18
+SIZE_OF_DATA = 8
+SIZE_OF_HEADER = 10
+START_INDEX_DATA = 10
 SUBSCRIBERS = []
+
+class Postman:
+   __instance = None
+   @staticmethod
+   def getInstance():
+      """ Static access method. """
+      if Postman.__instance == None:
+         Postman()
+      return Postman.__instance
+   def __init__(self, port, baudrate):
+      """ Virtually private constructor. """
+      if Postman.__instance != None:
+         raise Exception("This class is a singleton!")
+      else:
+         self.ser = serial.Serial(port, baudrate=baud, timeout=None)
+         self.subscribers = []
+         Postman.__instance = self
+
+   def subscribe(subscriber):
+      if not subscriber in self.subscribers:
+         self.subscribers.append(subscriber)
+         return (Atom(b'ok'), Atom(b'subscribed'))
+
+   def publish():
+      packet = RFPACKET()
+      if message == "ping":
+         self.ser.write("")
+         return (Atom(b'ok'),  Atom(b'pong'))
+      packet.hop_count, packet.cmd, packet.next_hop, packet.destination, packet.source, packet.data = message
+      encoded_packet = packet_encode(packet)
+      print("--> {} encoded:{}\n".format(packet, encoded_packet))
+      if self.ser.write(encoded_packet):
+         return (Atom(b'ok'), Atom(b'published to serial'))
+      else:
+         print("disconnected")
+         return (Atom(b'failed'),  Atom(b'Unavailable'))
+    def on_serial(SER):
+       p = re.compile('<.*>')
+       while True:
+        try:
+            packet = str(SER.readline())
+        except:
+            call(Atom("postman_service"), Atom("stop"), [])
+        result = p.search(packet)
+        if result:
+            #print("\t<--: {}".format(result.group(0)))
+            rf_packet = packet_decode(result.group(0))
+            print("<-- {} encoded:{}\n".format(rf_packet, result.group(0)))
+            if rf_packet :
+                message = (rf_packet.hop_count,
+                            rf_packet.cmd,
+                           rf_packet.next_hop,
+                           rf_packet.destination,
+                           rf_packet.source,
+                           rf_packet.data)
+                #call(Atom("mpn_controller_service"), Atom("response_handler"), [message])
+                for subscriber in SUBSCRIBERS:
+                    cast(subscriber, message)
+
+
 
 def register_handler(port, baudrate):
     SER = connect( port, baudrate)
@@ -42,13 +97,15 @@ def unsubscribe(subscriber):
 
 class RFPACKET:
     def __init__(self):
-        self.serialNo=0
+        self.hop_count=0
+        self.cmd=0
         self.next_hop = MAXIMUM_NODES
         self.destination = MAXIMUM_NODES
         self.source = MAXIMUM_NODES
         self.data = list()
     def __str__(self):
-        return "Sn: {}, NH: {}, Dt: {}, Sr: {}, Dt: {}".format(self.serialNo, self.next_hop, self.destination, self.source, self.data)
+        return "hc: {}, cmd: {}, NH: {}, Dt: {}, Sr: {}, Dt: {}".format(self.hop_count, self.cmd, self.next_hop,
+                                                                        self.destination, self.source, self.data)
 
 
 def packet_decode(rf_string):
@@ -66,7 +123,8 @@ def packet_decode(rf_string):
         print("\t\tCS Invalid: Received({}) Calculated({})\n".format(received_cs, calculated_XRCS))
         return None
     received_packet = RFPACKET()
-    received_packet.serialNo = int(rf_string[1:5], 16)
+    received_packet.hop_count = int(rf_string[3:5], 16)
+    received_packet.cmd = int(rf_string[1:3], 16)
     received_packet.next_hop = int(rf_string[5:7], 16)
     received_packet.destination = int(rf_string[7:9], 16)
     received_packet.source = int(rf_string[9:11], 16)
@@ -75,7 +133,8 @@ def packet_decode(rf_string):
 
 def packet_encode(response):
     packet = "<"
-    packet += '{:04x}'.format(response.serialNo)
+    packet += '{:02x}'.format(response.hop_count)
+    packet += '{:02x}'.format(response.cmd)
     packet += '{:02x}'.format(response.next_hop)
     packet += '{:02x}'.format(response.destination)
     packet += '{:02x}'.format(response.source)
@@ -108,7 +167,8 @@ def on_serial(SER):
             rf_packet = packet_decode(result.group(0))
             print("<-- {} encoded:{}\n".format(rf_packet, result.group(0)))
             if rf_packet :
-                message = (rf_packet.serialNo,
+                message = (rf_packet.hop_count,
+                            rf_packet.cmd,
                            rf_packet.next_hop,
                            rf_packet.destination,
                            rf_packet.source,
@@ -123,7 +183,7 @@ def publish(ser, message):
     if message == "ping":
         ser.write("")
         return (Atom(b'ok'),  Atom(b'pong'))
-    packet.serialNo, packet.next_hop, packet.destination, packet.source, packet.data = message
+    packet.hop_count, packet.cmd, packet.next_hop, packet.destination, packet.source, packet.data = message
     encoded_packet = packet_encode(packet)
     print("--> {} encoded:{}\n".format(packet, encoded_packet))
     if ser.write(encoded_packet):

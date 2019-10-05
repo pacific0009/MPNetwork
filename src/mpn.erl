@@ -11,7 +11,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("config.hrl").
 %% API
--export([start/0,init_mpn/2,
+-export([start/0,init_mpn/1,
   get_mpn_table/0,update_routing_table/3, get_distance_vector/1,
   get_routing_table/0, get_registered_bee/1, get_next_hop_bees/0,
   set_bee_as_lost/1, get_mpn_for/1, get_bees_state/0,
@@ -25,12 +25,18 @@
 -record(mpnBeesState,  {mac, service, data, timestamp}).
 %-record(mpnBeesRequest,  {mac, service, request, timestamp}).
 %-record(mpnBeesResponse, {mac, service, response, timestamp}).
--record(sequence, {number}).
+%-record(sequence, {number}).
 
 start()->
   io:format("\t- Starting MPNetwork ["),
   initDB(),
-  init_mpn(?MAX_BEES, ?MIN_SEQ),
+  L1 = length(get_mpn_table()),
+  L2 = length(get_routing_table()),
+  L3 = length(get_bees_state()),
+  L4 = length(get_registered_services()),
+  io:format("\t\t\t ||~p ~p ~p ~p ||~n",[L1, L2,L3,L4]),
+  init_mpn(?MAX_BEES),
+  init_routing(?MAX_BEES),
   io:format("##]~n"),
   io:format("\t+ MPNetwork Started!~n"),
   register_bee(?MyMAC),
@@ -43,40 +49,60 @@ initDB() ->
   lists:foreach(fun(Item) -> timer:sleep(100), io:format("####")
                 end, lists:seq(0,5)),
   try
-    mnesia:table_info(type, mpNetwork),
-    mnesia:table_info(type, mpnRoutingTable),
-    mnesia:table_info(type, sequence),
-    mnesia:table_info(type, mpnBeesServices),
-    mnesia:table_info(type, mpnBeesRequest),
-    mnesia:table_info(type, mpnBeesResponse)
 
+    mnesia:table_info(type, mpnBeesServices),
+    mnesia:table_info(type, mpnBeesState),
+    mnesia:table_info(type, mpNetwork),
+    mnesia:table_info(type, mpnRoutingTable)
   catch
     exit: _ ->
-      mnesia:create_table(mpNetwork, [{attributes, record_info(fields, mpNetwork)},
-        {type, bag}, {disc_copies,[node()]}] ),
-      mnesia:create_table(mpnRoutingTable, [{attributes, record_info(fields, mpnRoutingTable)},
-        {type, bag}, {disc_copies,[node()]}]),
-      mnesia:create_table(sequence, [{attributes, record_info(fields, sequence)},
-        {type, bag}, {disc_copies,[node()]}]),
+
       mnesia:create_table(mpnBeesServices, [{attributes, record_info(fields, mpnBeesServices)},
         {type, bag}, {disc_copies,[node()]}]),
       mnesia:create_table(mpnBeesState, [{attributes, record_info(fields, mpnBeesState)},
+        {type, bag}, {disc_copies,[node()]}]),
+      mnesia:create_table(mpNetwork, [{attributes, record_info(fields, mpNetwork)},
+        {type, bag}, {disc_copies,[node()]}] ),
+      mnesia:create_table(mpnRoutingTable, [{attributes, record_info(fields, mpnRoutingTable)},
         {type, bag}, {disc_copies,[node()]}])
   end.
 
-init_sequence(MINSeq)->
-  F = fun() ->
-    mnesia:write(#sequence{number = MINSeq})
-      end,
-  mnesia:transaction(F),
-  ok.
+init_mpn(MAX) ->
+  RESULT = get_mpn_table(),
+  if
+    length(RESULT) < MAX->
+      io:format("\t\t\t Mpn Table Length ~p~n",[length(RESULT)]),
+      init_mpn_tbl(0,MAX);
+    true ->
+      io:format("\t\t\t Mpn Table exist")
+  end.
 
-init_mpn(MAX, MINSeq) ->
-  mnesia:clear_table(mpNetwork),
-  mnesia:clear_table(sequence),
-  init_mpn_tbl(0,MAX),
-  init_sequence(MINSeq).
+init_routing(MAX) ->
+  RESULT = get_routing_table(),
+  if
+    length(RESULT) < MAX ->
+      io:format("\t\t\t Routing Table Length ~p~n",[length(RESULT)]),
+      init_routing_tbl(0,MAX);
+    true ->
+      io:format("\t\t\t Routing Table exist")
+  end.
 
+init_routing_tbl(Index, Max)->
+  if
+    Index == Max ->
+      ok;
+    true ->
+      if
+        Index < Max ->
+          F = fun() ->
+            mnesia:write(#mpnRoutingTable{destination = Index, distance = ?INFINITE, nextHop = ?MAX_BEES})
+              end,
+          {atomic, Results} = mnesia:transaction(F),
+          init_routing_tbl(Index+1, Max);
+        true ->
+          {failed, exceeded_max_nodes }
+      end
+  end.
 
 init_mpn_tbl(Index, Max)->
   if
@@ -88,7 +114,7 @@ init_mpn_tbl(Index, Max)->
           F = fun() ->
             mnesia:write(#mpNetwork{mpnId=Index, available = true})
               end,
-          mnesia:transaction(F),
+          {atomic, Results} = mnesia:transaction(F),
           init_mpn_tbl(Index+1, Max);
         true ->
           {failed, exceeded_max_nodes }
@@ -169,45 +195,35 @@ get_registered_services_for(MAC)->
 
 update_routing_table(ID, Distance, NextHop) ->
   if
-    ID == ?MyId->
-      Changed = false,
-      io:format("\t\tPacket Ignored~n" );
+    ID =:= ?MyId->
+      io:format("\t\tPacket Ignored~n" ),
+      false;
     true ->
       DVs= get_distance_vector(ID),
+      {_, ID, Dist, NH} = lists:nth(1, DVs),
       if
-        length(DVs) == 0 ->
-          Changed = true,
-          insert_distance_vector(ID, Distance+1, NextHop);
-        true ->
-          {_, _, Dist, NH} = lists:nth(1, DVs),
+        NH=:=NextHop ->
           if
-            Distance + 1 < Dist  ->
-              Changed = true,
-              insert_distance_vector(ID, Distance + 1, NextHop) ;
+            Dist =/= Distance+1 ->
+              io:format("\t\tRouting Changed~n" ),
+              insert_distance_vector(ID, erlang:min(Distance+1, ?INFINITE), NextHop),
+              true;
             true ->
-              if
-                NextHop == NH ->
-                  if
-                    Dist >= ?INFINITE->
-                      Changed = true,
-                      insert_distance_vector(ID, ?INFINITE, ?INFINITE) ;
-                    true ->
-                      if
-                        Dist == Distance + 1 ->
-                          Changed = false;
-                        true ->
-                          Changed = true,
-                          insert_distance_vector(ID, Distance + 1, NextHop)
-                      end
-                  end;
-                true ->
-                  Changed = false,
-                  io:format("\t\tPacket Ignored~n" )
-              end
+              io:format("\t\tPacket Ignored~n" ),
+              false
+          end;
+        true ->
+          if
+            Distance+1 < Dist ->
+              io:format("\t\tRouting Changed~n" ),
+              insert_distance_vector(ID, erlang:min(Distance+1, ?INFINITE), NextHop),
+              true;
+            true ->
+              io:format("\t\tPacket Ignored~n" ),
+              false
           end
       end
-  end,
-  Changed.
+  end.
 
 
 insert_distance_vector(ID, Distance, NextHop)  ->
@@ -289,7 +305,7 @@ register_bee(MAC) ->
   end.
 
 set_bee_as_lost(Bee)->
-  io:format("\t\tBee~p is lost~n",[Bee]),
+  io:format("--X-- Bee~p is lost~n",[Bee]),
   {_, Bee,_, MAC, LastActive, _} = lists:nth(1,get_mpn_for(Bee)),
   F = fun() ->
     mnesia:delete(mpNetwork, Bee, write),
@@ -297,6 +313,7 @@ set_bee_as_lost(Bee)->
       end,
   mnesia:transaction(F),
   %% Todo: Set unreachable bees in routing table
+  insert_distance_vector(Bee, ?INFINITE, ?INFINITE),
   ok.
 
 register_bee_services(Mac, S1, S2, S3, S4) ->
@@ -318,7 +335,6 @@ store_request(Mac, Service, Request) ->
       file:write_file(FileName, lists:flatten(io_lib:format("~p, ~p, ~p",[Mac, Service, Request])), [append])
   end.
 
-
 store_response(Mac, Service, Response) ->
   {{Y,M,D},{H,M,_}}= calendar:universal_time(),
   FileName= lists:flatten(io_lib:format("Response_~p_~p_~p_~p_~p.log",[Y,M,D,H,M])),
@@ -326,19 +342,18 @@ store_response(Mac, Service, Response) ->
     {ok, FileInfo} ->
       file:write_file(FileName, lists:flatten(io_lib:format("~p, ~p, ~p",[Mac, Service, Response])), [append]);
     {error, enoent} ->
-      file:write_file(FileName, lists:flatten(io_lib:format("~p, ~p, ~p",[Mac, Service, Response])), [append])
+      file:write_file(FileName, lists:flatten(io_lib:format("~p, ~p, ~p",[Mac, Service, Response])), [write])
   end.
 
 record_state(Mac, Service, Data) ->
   io:format("--@ Recording State ~p, ~p, ~p", [Mac, Service, Data]),
   AF = fun()->
-    Query = qlc:q([X || X <- mnesia:table(mpnBeesServices), #mpnBeesState.mac=:=Mac, #mpnBeesState.service=:=Service]),
-    Results = qlc:e(Query),
+    Query = qlc:q([X || X <- mnesia:table(mpnBeesState), X#mpnBeesState.mac=:=Mac, X#mpnBeesState.service=:=Service ]),
+      Result = qlc:e(Query),
     F = fun()->
-      lists:foreach(fun(Item)->mnesia:delete_object(Item)end, Results),
+      lists:foreach(fun(Item)->mnesia:delete_object(Item)end, Result),
       mnesia:write(#mpnBeesState{mac = Mac, service = Service, data = Data , timestamp = calendar:universal_time()})
        end,
     mnesia:transaction(F)
     end,
-  {atomic, Results} = mnesia:transaction(AF),
-  ok.
+  {atomic, Results} = mnesia:transaction(AF).

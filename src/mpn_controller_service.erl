@@ -8,12 +8,12 @@
 %%%-------------------------------------------------------------------
 -module(mpn_controller_service).
 -author("anand.ratna").
-
+-include("config.hrl").
 -behaviour(gen_server).
--define(INTERVAL, 6000). % One minute
+
 
 %% API
--export([start_link/0, response_handler/1]).
+-export([start_link/0, response_handler/1, bee_sting/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -44,6 +44,9 @@ start_link() ->
 
 response_handler(Data)->
   gen_server:call({global, ?MODULE}, {response_handler, Data}).
+
+bee_sting(Bee)->
+  gen_server:call({global, ?MODULE}, {bee_sting, Bee}).
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -70,6 +73,7 @@ init([]) ->
   postman_service:subscribe(Handler),
   mpn_controller:start(),
   erlang:send_after(?INTERVAL, self(), trigger_prune_lost_bees),
+  erlang:send_after(?ART_INTERVAL, self(), advertise_routing_table),
   {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -87,6 +91,8 @@ init([]) ->
   {noreply, NewState :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
   {stop, Reason :: term(), NewState :: #state{}}).
+handle_call({bee_sting, Bee}, _From, State) ->
+  {reply, mpn_controller:bee_sting(bee), State};
 
 handle_call({response_handler, Data}, _From, State) ->
   {reply, mpn_controller:response_handler(Data), State}.
@@ -119,11 +125,19 @@ handle_cast(_Request, State) ->
   {noreply, NewState :: #state{}} |
   {noreply, NewState :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #state{}}).
+
 handle_info(trigger_prune_lost_bees, State) ->
   postman_service:publish(<<"ping">>),
   mpn_controller:prune_lost_bees(),
   erlang:send_after(?INTERVAL, self(), trigger_prune_lost_bees),
   {noreply, State};
+
+handle_info(advertise_routing_table, State) ->
+  postman_service:publish(<<"ping">>),
+  mpn_controller:advertise_routing_table(),
+  erlang:send_after(?ART_INTERVAL, self(), advertise_routing_table),
+  {noreply, State};
+
 handle_info(_Info, State) ->
   {noreply, State}.
 

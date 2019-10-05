@@ -10,7 +10,7 @@
 -author("anand.ratna").
 -include("config.hrl").
 %% API
--export([start/0, on_receive_packet/0, prune_lost_bees/0, response_handler/1]).
+-export([start/0, on_receive_packet/0, prune_lost_bees/0, advertise_routing_table/0, bee_sting/1]).
 start()->
   io:format("- Starting MPN Controller\n"),
 %%  Handler = spawn(mpn_controller, on_receive_packet,[]),
@@ -37,9 +37,10 @@ handle_bee_registration( S, DATA)->
   SR = string:pad(integer_to_list(BeeId, 16), 2, leading, "0"),
   Buff = lists:flatten(io_lib:format("~s~s", [list_to_binary(SR), NewMac])),
   Data = list_to_binary(Buff),
-  postman_service:publish({2, ?MAX_BEES,S, ?MyId, Data}),
+  postman_service:publish({0, 2, ?MAX_BEES,S, ?MyId, Data}),
   timer:sleep(2000),
-  postman_service:publish({5, BeeId,S, ?MyId, DATA}),
+  postman_service:publish({0, 5, BeeId,S, ?MyId, DATA}),
+  advertise_routing_table(),
   {ok, MAC, BeeId}.
 
 update_bee_alive(Bee,MAC) ->
@@ -65,45 +66,30 @@ store_response(Bee, DATA)->
   %% mpn_service:store_response(MAC, Service, Response),
   mpn_service:record_state(MAC, Service, Response).
 
-response_handler(Data)->
-  case Data of
-    {0,_,_,S,DATA} ->
-      handle_routing_packet( S,DATA);
-    {1,_,_,S,DATA} ->
-      handle_bee_registration( S,DATA);
-    {4,_,?MyId,S,DATA}->
-      update_bee_alive(S,DATA);
-    Other->
-      io:format("$failed ~p~n", [Other])
-  end.
-
-
-
-
 on_receive_packet()->
   receive
-    {0,_,_,S,DATA} ->
+    {_,0,_,_,S,DATA} ->
       handle_routing_packet( S,DATA),
       on_receive_packet();
-    {1,_,_,S,DATA} ->
+    {_,1,_,_,S,DATA} ->
       handle_bee_registration( S,DATA),
       on_receive_packet();
-    {2,_,_,S,DATA} ->
+    {_,2,_,_,S,DATA} ->
       %% ignore
       on_receive_packet();
-    {3,_,_,S,DATA} ->
+    {_,3,_,_,S,DATA} ->
       %% ignore
       on_receive_packet();
-    {4,_,?MyId,S,DATA}->
+    {_,4,_,?MyId,S,DATA}->
       update_bee_alive(S,DATA),
       on_receive_packet();
-    {5,_,_,S,DATA} ->
+    {_,5,_,_,S,DATA} ->
       %% ignore
       on_receive_packet();
-    {6,_,?MyId,S,DATA}->
+    {_,6,_,?MyId,S,DATA}->
       register_services(S, DATA),
       on_receive_packet();
-    {_,_,?MyId,S,DATA}->
+    {_,_,_,?MyId,S,DATA}->
       store_response(S, DATA),
       on_receive_packet();
     Other->
@@ -112,17 +98,15 @@ on_receive_packet()->
   end.
 
 
-sync_services_of_registered_bee()->
-  ok.
-
-collect_bee_state()->
-  ok.
-
 prune_lost_bees() ->
-  Next_hop_bees = lists:usort(mpn_service:get_next_hop_bees()),
+  %Next_hop_bees = lists:usort(mpn_service:get_next_hop_bees()),
+  MPN = mpn_service:get_mpn_table(),
+  RegBees = lists:filtermap(fun({_,Bee,Avail,_,_,_}) -> case Avail of false -> {true, Bee}; _ -> false end end, MPN),
+
   lists:foreach(fun(Bee) ->
-    bee_sting(Bee), timer:sleep(500)
-                end, Next_hop_bees).
+    erlang:spawn(node(),mpn_controller,bee_sting,[Bee])
+                end, RegBees),
+  ok.
 
 
 bee_sting(Bee)->
@@ -131,35 +115,59 @@ bee_sting(Bee)->
   if
     Bee == ?MyId -> io:format("\tBee(~p) ~ts~n",[Bee, Heart]);
     true ->
-      Sting1 = is_bee_sting(Bee),
+      Send_time = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
+      Sting = is_bee_sting(0, 10, Bee, Send_time),
       if
-        Sting1 -> io:format("Bee(~p) ~ts~n",[Bee, Heart]);
+        Sting =:= true -> io:format("Bee(~p) ~ts~n",[Bee, Heart]);
         true ->
-          Sting2 = is_bee_sting( Bee),
-          if
-            Sting2 -> io:format("Bee(~p) ~ts~n",[Bee, Heart]);
-            true ->
-              mpn_service:set_bee_as_lost(Bee)
-          end
+          mpn_service:set_bee_as_lost(Bee)
       end
   end.
 
-is_bee_sting( Bee)->
+is_bee_sting(Index, Max, Bee, Send_time)->
   {Bee,MAC} = lists:nth(1,mpn_service:get_registered_bee(Bee)),
   {_, Bee,_,NextHop} = lists:nth(1,mpn_service:get_distance_vector(Bee)),
-  postman_service:publish( {3, NextHop,Bee,?MyId, MAC}),
-  Send_time = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
-  timer:sleep(1000),
+  postman_service:publish( {0, 3, NextHop,Bee,?MyId, MAC}),
+  timer:sleep(5000),
   {_, Bee,_, _, LastActive, _} = lists:nth(1,mpn_service:get_mpn_for(Bee)),
-  TimeDiff = calendar:datetime_to_gregorian_seconds(LastActive) - Send_time,
+  TD = calendar:datetime_to_gregorian_seconds(LastActive) - Send_time,
   if
-  TimeDiff >= 0 -> TimeDiff >= 0;
+      TD >= 0 ->
+      true;
     true ->
-      timer:sleep(1000),
-      {_, Bee,_, _, LastActive2, _} = lists:nth(1,mpn_service:get_mpn_for(Bee)),
-      TimeDiff2 = calendar:datetime_to_gregorian_seconds(LastActive2) - Send_time,
-      TimeDiff2 >= 0
+      if
+        Index < Max ->
+          is_bee_sting(Index+1, Max, Bee, Send_time);
+        true ->
+          false
+      end
   end.
 
-request_supported_services()->
+
+advertise_routing_table()->
+  RT = mpn_service:get_routing_table(),
+  DV_2 = round(length(RT)/2)-1,
+  lists:foreach(fun(Count) ->
+    C1 = Count*2+1,
+    C2 = Count*2+2,
+    {_,P1,D1,_} = lists:nth(C1, RT),
+    {_,P2,D2,_} = lists:nth(C2, RT),
+    DN1 = string:pad(integer_to_list(P1, 16), 2, leading, "0"),
+    DT1 = string:pad(integer_to_list(D1, 16), 2, leading, "0"),
+    DN2 = string:pad(integer_to_list(P2, 16), 2, leading, "0"),
+    DT2 = string:pad(integer_to_list(D2, 16), 2, leading, "0"),
+    Buff = lists:flatten(io_lib:format("~s~s~s~s", [list_to_binary(DN1),
+      list_to_binary(DT1),
+      list_to_binary(DN2),
+      list_to_binary(DT2)])),
+    Data = list_to_binary(Buff),
+    postman_service:publish({0, 0, ?INFINITE,?INFINITE, ?MyId, Data})
+                end, lists:seq(0,DV_2)),
   ok.
+
+%%advertise_lost_node()->
+%%  MPN = mpn:get_mpn_table(),
+%%  LiveNodes = lists:filtermap(fun({Bee,0,0,0,Live}) -> case Live of true -> {true, Bee}; _ -> false end end,
+%%    MPN),
+%%
+%%  ok.
