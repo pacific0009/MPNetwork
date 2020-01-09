@@ -8,6 +8,7 @@ The Master node Or Controller is written in Erlang programming language and can 
 You need to connect HC12 transiver module with UART pin at raspbery pi or connect HC12 with a USB to TTL and connect with computer.
 
 The Other slave node is implemented in c using Arduino framework here is the link https://github.com/pacific0009/HC12MPN
+
 Upload the Example sketch in arduino device and then connect HC12 with UART
 
 
