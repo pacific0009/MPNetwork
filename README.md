@@ -1,5 +1,5 @@
 # MPNetwork
-The ida behind this project is crate a local wireless network in which thae master node will keep track of state other nodes and give them instruction. 
+The idea behind this project is create a local wireless network in which thae master node will keep track of state other nodes and give them instruction. 
 
 HC12 wireless transiver module was used for this project
 ![alt text](https://github.com/pacific0009/MPNetwork/blob/master/MPNetwork.png)
